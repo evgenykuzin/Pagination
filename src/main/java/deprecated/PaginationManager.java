@@ -1,10 +1,14 @@
+package deprecated;
+
 import com.google.gson.Gson;
+import exceptions.EmptyPageIteratorException;
 import org.redisson.Redisson;
 import org.redisson.api.RList;
 import org.redisson.api.RedissonClient;
 
 import java.util.*;
 
+@Deprecated
 public class PaginationManager<E> implements AutoCloseable{
     private final RedissonClient redisson;
     private final Gson gson = new Gson();
@@ -19,11 +23,7 @@ public class PaginationManager<E> implements AutoCloseable{
         this.comparator = sortedSet.comparator();
         var first = sortedSet.first();
         if (classForSerialize == null) classForSerialize = first.getClass();
-        Page annotation = classForSerialize.getAnnotation(Page.class);
         var pageType = "default";
-        if (annotation != null) {
-            pageType = annotation.pageType();
-        }
         String key = "page-type#" + pageType + "-id#" + Math.abs(new Random().nextLong());
         System.out.println(key);
         cache(sortedSet, key);
@@ -42,10 +42,10 @@ public class PaginationManager<E> implements AutoCloseable{
         set.forEach(p -> rList.add(gson.toJson(p)));
     }
 
-    private Collection<E> getSublist(String key, int currentIndex, int maxPagination) throws EmptyPaginationIteratorExceprion {
+    private Collection<E> getSublist(String key, int currentIndex, int maxPagination) throws EmptyPageIteratorException {
         RList<String> jsons = redisson.getList(key);
         List<String> subJsons = jsons.range(currentIndex, currentIndex+maxPagination);
-        if (subJsons == null || subJsons.isEmpty() || classForSerialize == null) throw new EmptyPaginationIteratorExceprion();
+        if (subJsons == null || subJsons.isEmpty() || classForSerialize == null) throw new EmptyPageIteratorException();
         Collection<E> collection = new TreeSet<>(comparator);
         subJsons.forEach(json -> {
             if (json != null) {
@@ -69,6 +69,7 @@ public class PaginationManager<E> implements AutoCloseable{
         return new PaginationIterator(key, maxPagination, maxPages);
     }
 
+    @Deprecated
     class PaginationIterator implements Iterator<Collection<E>>{
         String key;
         private int currentIndex;
@@ -93,7 +94,7 @@ public class PaginationManager<E> implements AutoCloseable{
             try {
                 elements = getSublist(key, currentIndex, maxPagination);
                 currentIndex+=maxPagination+1;
-            } catch (EmptyPaginationIteratorExceprion ex) {
+            } catch (EmptyPageIteratorException ex) {
                 ex.printStackTrace();
                 currentIndex = -1;
                 return null;
